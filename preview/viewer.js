@@ -34,7 +34,7 @@
     return Math.min(high, Math.max(low, Number.isFinite(value) ? Math.trunc(value) : low));
   }
   const pad = value => String(value).padStart(2, '0');
-  const asset = name => 'slides/' + name;
+  const asset = name => 'slides/' + name + '?v=4';
   function showError(message, action) {
     retry = action; get('error-text').textContent = message; get('error').hidden = false;
   }
@@ -198,7 +198,7 @@
   });
   async function load() {
     try {
-      const response=await fetch('slides/manifest.json');
+      const response=await fetch('slides/manifest.json?v=4');
       if (!response.ok) throw Error('manifest');
       const data=await response.json();
       if (!Array.isArray(data.slides)||!data.slides.length) throw Error('slides');

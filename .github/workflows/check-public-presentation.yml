@@ -36,6 +36,8 @@ jobs:
                   if attempt == 31: raise
                   time.sleep(9)
           manifest = json.loads((root / 'slides/manifest.json').read_text())
+          assert len(manifest['slides']) == 40
+          assert len(manifest['slides'][12]['frames']) == 5
           images = {'slides/' + frame for slide in manifest['slides'] for frame in slide['frames']}
           files = [(p,p) for p in images | {'slides/manifest.json','preview/viewer.css','preview/viewer.js','challenge-cup-sharing.pptx'}]
           files.append(('preview/index.html','preview/'))
@@ -47,5 +49,5 @@ jobs:
         run: |
           origin="https://$(tr -d '\r\n' < CNAME)"
           google-chrome --headless --no-sandbox --disable-gpu --user-data-dir="$RUNNER_TEMP/check-sharing" --virtual-time-budget=15000 --dump-dom "$origin/?page=5&step=1&v=$GITHUB_SHA" > "$RUNNER_TEMP/slide.html"
-          grep -Fq 'src="slides/05-step1.webp?v=4"' "$RUNNER_TEMP/slide.html"
+          grep -Fq 'src="slides/05-step1.webp?v=5"' "$RUNNER_TEMP/slide.html"
           grep -Fq '已展开 1 / 8 项' "$RUNNER_TEMP/slide.html"

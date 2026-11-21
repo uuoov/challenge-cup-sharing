@@ -1,0 +1,51 @@
+name: Check public presentation
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/check-public-presentation.yml']
+permissions:
+  contents: read
+jobs:
+  preview-and-download:
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Compare the deployed website and download to the published files
+        shell: python
+        run: |
+          import concurrent.futures, hashlib, json, os, pathlib, time, urllib.request
+          root = pathlib.Path.cwd()
+          origin = 'https://' + (root / 'CNAME').read_text().strip() + '/'
+          revision = os.environ['GITHUB_SHA']
+          def check(item):
+              path, route = item
+              req = urllib.request.Request(origin + route + '?v=' + revision, headers={'Cache-Control': 'no-cache'})
+              with urllib.request.urlopen(req, timeout=20) as response:
+                  data = response.read()
+              if hashlib.sha256(data).digest() != hashlib.sha256((root / path).read_bytes()).digest():
+                  raise ValueError('Waiting for the published version of ' + path)
+          for attempt in range(32):
+              try:
+                  check(('index.html', ''))
+                  break
+              except Exception:
+                  if attempt == 31: raise
+                  time.sleep(9)
+          manifest = json.loads((root / 'slides/manifest.json').read_text())
+          images = {'slides/' + frame for slide in manifest['slides'] for frame in slide['frames']}
+          files = [(p,p) for p in images | {'slides/manifest.json','preview/viewer.css','preview/viewer.js','challenge-cup-sharing.pptx'}]
+          files.append(('preview/index.html','preview/'))
+          with concurrent.futures.ThreadPoolExecutor(max_workers=5) as pool:
+              list(pool.map(check, files))
+          print(f'Public domain, {len(manifest["slides"])} slides, {len(images)} preview frames, and original PPTX verified on {origin}')
+      - name: Open an animated slide using Chrome
+        shell: bash
+        run: |
+          origin="https://$(tr -d '\r\n' < CNAME)"
+          google-chrome --headless --no-sandbox --disable-gpu --user-data-dir="$RUNNER_TEMP/check-sharing" --virtual-time-budget=15000 --dump-dom "$origin/?page=5&step=1&v=$GITHUB_SHA" > "$RUNNER_TEMP/slide.html"
+          grep -Fq 'src="slides/05-step1.webp"' "$RUNNER_TEMP/slide.html"
+          grep -Fq '已展开 1 / 8 项' "$RUNNER_TEMP/slide.html"
